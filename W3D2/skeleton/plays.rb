@@ -1,10 +1,14 @@
 require 'sqlite3'
 require 'singleton'
 
+
+#inheritting from the SQL database allows you to do SQL stuff
+#like execute strings of text
 class PlayDBConnection < SQLite3::Database
   include Singleton
 
   def initialize
+    #tells it which database it should be accessing
     super('plays.db')
     self.type_translation = true
     self.results_as_hash = true
@@ -12,15 +16,18 @@ class PlayDBConnection < SQLite3::Database
 end
 
 class Play
+
   attr_accessor :title, :year, :playwright_id
 
   def self.all
     data = PlayDBConnection.instance.execute("SELECT * FROM plays")
     data.map { |datum| Play.new(datum) }
+    #RETURNS AN ARRAY OF PLAY OBJECTS, BASED ON THE DATABASE
   end
 
   def self.find_by_title(title)
     play = PlayDBConnection.instance.execute(<<-SQL, title)
+      --RECEIVES ALL INFORMATION ABOUT THAT PLAY
       SELECT
         *
       FROM
@@ -30,19 +37,26 @@ class Play
     SQL
     return nil unless play.length > 0
 
+    #AFTER RECEIVING ALL INFORMATION ABOUT THAT PLAY, CREATES
+    #A NEW PLAY CLASS INSTANCE
+
     Play.new(play.first) # play is stored in an array!
   end
 
   def self.find_by_playwright(name)
+    #LOOK AT THIS LATER
     playwright = Playwright.find_by_name(name)
+    #THIS IS A PLAYWRIGHT OBJECT
     raise "#{name} not found in DB" unless playwright
+    # Playwright.find_by_name(name) wil return nil if the playwright does not exist
+
 
     plays = PlayDBConnection.instance.execute(<<-SQL, playwright.id)
       SELECT
         *
       FROM
         plays
-      WHERE
+       WHERE --THIS ? WILL REFER TO THE FIRST ARGUMENT IN EXECUTE, WHICH IS PLAYWRIGHT.ID
         playwright_id = ?
     SQL
 
@@ -58,11 +72,17 @@ class Play
 
   def create
     raise "#{self} already in database" if @id
+
+    # USING THE SQL3 GEM, YOU CAN USE EXECUTE, AND PASS IN VALUES
+    # TO THE STRING BELOW
+
     PlayDBConnection.instance.execute(<<-SQL, @title, @year, @playwright_id)
       INSERT INTO
         plays (title, year, playwright_id)
       VALUES
         (?, ?, ?)
+      -- USING THE QUESsTION MARKS SANITIZES THE INPUTS, ESCAPES ANY CHARACTERS
+      -- ABOVE THAT MIGHT BE MALICIOUS
     SQL
     @id = PlayDBConnection.instance.last_insert_row_id
   end
